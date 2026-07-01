@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ဝင်ငွေ/ထွက်ငွေ စာရင်း (Data သိမ်းဆည်းနိုင်သောစနစ်)</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f9; padding: 20px; display: flex; justify-content: center; }
+        .container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
+        h2 { text-align: center; color: #333; }
+        .summary { display: flex; justify-content: space-between; margin-bottom: 20px; font-weight: bold; background: #fafafa; padding: 10px; border-radius: 5px; }
+        .income { color: #2e7d32; }
+        .expense { color: #c62828; }
+        .balance-box { text-align: center; background: #e8f5e9; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        input, select, button { width: 100%; padding: 10px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { background-color: #2b6cb0; color: white; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
+        button:hover { background-color: #1a365d; }
+        ul { list-style-type: none; padding: 0; }
+        li { background: #f9f9f9; padding: 10px; margin-bottom: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #ccc; }
+        .btn-delete { width: auto; background-color: #e53e3e; padding: 5px 10px; margin: 0; font-size: 12px; }
+        .btn-delete:hover { background-color: #9b2c2c; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>ဝင်ငွေ / ထွက်ငွေ စာရင်း</h2>
+    
+    <div class="balance-box">
+        <h3 style="margin: 0;">လက်ကျန်ငွေ: <span id="balance">0</span> ကျပ်</h3>
+    </div>
+
+    <div class="summary">
+        <div>ဝင်ငွေစုစုပေါင်း: <br><span id="total-income" class="income">0</span> ကျပ်</div>
+        <div>ထွက်ငွေစုစုပေါင်း: <br><span id="total-expense" class="expense">0</span> ကျပ်</div>
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
+
+    <label>အကြောင်းအရာ</label>
+    <input type="text" id="description" placeholder="ဥပမာ - လစာ၊ စားစရိတ်">
+
+    <label>ပမာဏ (ကျပ်)</label>
+    <input type="number" id="amount" placeholder="0">
+
+    <label>အမျိုးအစား</label>
+    <select id="type">
+        <option value="income">ဝင်ငွေ (+)</option>
+        <option value="expense">ထွက်ငွေ (-)</option>
+    </select>
+
+    <button onclick="addTransaction()">စာရင်းသွင်းမည်</button>
+
+    <h3>သိမ်းဆည်းထားသော မှတ်တမ်းများ</h3>
+    <ul id="transaction-list"></ul>
+</div>
+
+<script>
+    // LocalStorage ထဲကနေ ရှိပြီးသား Data တွေကို ဆွဲထုတ်ယူခြင်း၊ မရှိရင် Array အလွတ်အဖြစ် သတ်မှတ်ခြင်း
+    let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+
+    function updateUI() {
+        const list = document.getElementById('transaction-list');
+        list.innerHTML = ''; // စာရင်းဟောင်းတွေကို အရင်ရှင်းထုတ်
+
+        let totalIncome = 0;
+        let totalExpense = 0;
+
+        transactions.forEach((transaction, index) => {
+            const amount = parseFloat(transaction.amount);
+            if (transaction.type === 'income') {
+                totalIncome += amount;
+            } else {
+                totalExpense += amount;
+            }
+
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div>
+                    <strong>${transaction.description}</strong><br>
+                    <small style="color:#777;">${transaction.date}</small>
+                </div>
+                <div>
+                    <span style="font-weight:bold; margin-right: 10px; color: ${transaction.type === 'income' ? '#2e7d32' : '#c62828'}">
+                        ${transaction.type === 'income' ? '+' : '-'}${amount.toLocaleString()} ကျပ်
+                    </span>
+                    <button class="btn-delete" onclick="deleteTransaction(${index})">ဖျက်မည်</button>
+                </div>
+            `;
+            li.style.borderLeft = transaction.type === 'income' ? '5px solid #2e7d32' : '5px solid #c62828';
+            list.appendChild(li);
+        });
+
+        const balance = totalIncome - totalExpense;
+
+        // အရေအတွက် ကိန်းဂဏန်းများ UI ပေါ်တွင် ပြောင်းလဲခြင်း
+        document.getElementById('total-income').innerText = totalIncome.toLocaleString();
+        document.getElementById('total-expense').innerText = totalExpense.toLocaleString();
+        document.getElementById('balance').innerText = balance.toLocaleString();
+        
+        // လက်ကျန်ငွေ အပေါင်း/အနှုတ် ပေါ်မူတည်ပြီး အရောင်ပြောင်းခြင်း
+        document.getElementById('balance').style.color = balance >= 0 ? '#2e7d32' : '#c62828';
+    }
+
+    function addTransaction() {
+        const desc = document.getElementById('description').value;
+        const amount = parseFloat(document.getElementById('amount').value);
+        const type = document.getElementById('type').value;
+        
+        // လက်ရှိ ရက်စွဲကို ရယူခြင်း
+        const today = new Date().toLocaleDateString('my-MM', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        if (!desc || isNaN(amount) || amount <= 0) {
+            alert("အချက်အလက်များကို မှန်ကန်စွာ ဖြည့်စွက်ပါ");
+            return;
+        }
+
+        const newTransaction = {
+            description: desc,
+            amount: amount,
+            type: type,
+            date: today
+        };
+
+        // Array ထဲကို ဒေတာအသစ် ထည့်ခြင်း
+        transactions.push(newTransaction);
+
+        // LocalStorage ထဲသို့ သိမ်းဆည်းခြင်း
+        localStorage.setItem('transactions', JSON.stringify(transactions));
+
+        // UI ကို Update လုပ်ပြီး Input တွေကို ပြန်ဖျက်ခြင်း
+        updateUI();
+        document.getElementById('description').value = '';
+        document.getElementById('amount').value = '';
+    }
+
+    // စာရင်း ပြန်ဖျက်သည့် Function
+    function deleteTransaction(index) {
+        if(confirm("ဤစာရင်းကို ဖျက်ရန် သေချာပါသလား?")) {
+            transactions.splice(index, 1); // ရွေးချယ်ထားတဲ့ အခန်းကို ဖျက်ခြင်း
+            localStorage.setItem('transactions', JSON.stringify(transactions)); // လိုကယ်ထဲ ပြန်သိမ်းခြင်း
+            updateUI(); // UI ကို Update ပြန်လုပ်ခြင်း
+        }
+    }
+
+    // စာမျက်နှာ စတင်ပွင့်လာချိန်တွင် ဒေတာများကို ယူ၍ ပြသပေးခြင်း
+    updateUI();
+</script>
+
+</body>
+</html>
